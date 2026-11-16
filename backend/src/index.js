@@ -8,7 +8,8 @@ import { connectDB } from './config/db.js';
 import typeDefs from './graphql/typeDefs.js';
 import resolvers from './graphql/resolvers.js';
 import { getUserFromReq } from './utils/auth.js';
-import { securityPipeline } from './security/pipeline.js';
+import { securityPipeline, resetSecurityState } from './security/pipeline.js';
+import { loadBlocks } from './security/blocklist.js';
 
 if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET missing in .env');
 
@@ -29,6 +30,15 @@ const server = new ApolloServer({
 
 await server.start();
 await connectDB();
+await loadBlocks();
+
+// Dev only: clear blocks and rate limits so you can keep testing from your own IP
+if (!isProd) {
+  app.post('/dev/security/reset', (req, res) => {
+    resetSecurityState();
+    res.json({ ok: true });
+  });
+}
 
 app.use(
   '/graphql',
