@@ -4,6 +4,9 @@ import User from '../models/User.js';
 import Post from '../models/Post.js';
 import Reply from '../models/Reply.js';
 import { signToken } from '../utils/auth.js';
+import { sanitizeText } from '../utils/sanitize.js';
+import { getStats, getEvents, getBlockedIps } from '../security/stats.js';
+import { unblockIp, normalizeIp } from '../security/blocklist.js';
 
 const fail = (message, code) => new GraphQLError(message, { extensions: { code } });
 
@@ -12,8 +15,15 @@ const requireAuth = (ctx) => {
   return ctx.user;
 };
 
+const requireAdmin = (ctx) => {
+  const user = requireAuth(ctx);
+  if (user.role !== 'admin') throw fail('Admins only', 'FORBIDDEN');
+  return user;
+};
+
+// Sanitize first (strip HTML, control and hidden characters), then validate the length
 const cleanText = (text, max = 280) => {
-  const t = String(text).trim();
+  const t = sanitizeText(text);
   if (!t || t.length > max) throw fail(`Text must be 1-${max} characters`, 'BAD_USER_INPUT');
   return t;
 };
@@ -27,11 +37,30 @@ export default {
       Post.find().sort({ createdAt: -1 }).limit(Math.min(Math.max(limit, 1), 50)),
     post: (_, { id }) => Post.findById(id),
     user: (_, { id }) => User.findById(id).select('-password'),
+
+    // Admin-only security console data
+    securityStats: (_, __, ctx) => {
+      requireAdmin(ctx);
+      return getStats();
+    },
+    securityEvents: (_, args, ctx) => {
+      requireAdmin(ctx);
+      return getEvents(args);
+    },
+    blockedIps: (_, __, ctx) => {
+      requireAdmin(ctx);
+      return getBlockedIps();
+    },
   },
 
   Mutation: {
     signup: async (_, { username, email, password }) => {
-      if (password.length < 8) throw fail('Password must be at least 8 characters', 'BAD_USER_INPUT');
+      if (!/^[A-Za-z0-9_]{3,20}$/.test(username))
+        throw fail('Username: 3-20 letters, numbers or underscores', 'BAD_USER_INPUT');
+      if (email.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+        throw fail('Enter a valid email address', 'BAD_USER_INPUT');
+      if (password.length < 8 || password.length > 72)
+        throw fail('Password must be 8-72 characters', 'BAD_USER_INPUT');
       const exists = await User.findOne({
         $or: [{ email: String(email).toLowerCase() }, { username: String(username) }],
       });
@@ -83,6 +112,12 @@ export default {
       if (!(await Post.exists({ _id: postId }))) throw fail('Post not found', 'NOT_FOUND');
       return Reply.create({ post: postId, author: user._id, content: cleanText(content) });
     },
+
+    unblockIp: async (_, { ip }, ctx) => {
+      requireAdmin(ctx);
+      await unblockIp(normalizeIp(String(ip).trim()));
+      return true;
+    },
   },
 
   // Field resolvers. User.posts <-> Post.author lets queries nest forever,
@@ -100,6 +135,12 @@ export default {
     likedByMe: (p, _, ctx) => !!ctx.user && p.likes.some((id) => id.equals(ctx.user._id)),
     replies: (p) => Reply.find({ post: p._id }).sort({ createdAt: 1 }),
     createdAt: iso,
+  },
+  SecurityEvent: {
+    createdAt: iso,
+  },
+  BlockedIp: {
+    blockedUntil: (b) => b.blockedUntil.toISOString(),
   },
   Reply: {
     author: (r) => User.findById(r.author).select('-password'),

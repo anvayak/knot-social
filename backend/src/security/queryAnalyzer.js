@@ -20,8 +20,21 @@ export function analyzeQuery(queryText) {
     else if (def.kind === Kind.OPERATION_DEFINITION) operations.push(def);
   }
 
-  const r = { malformed: false, depth: 0, cost: 0, fields: 0, aliases: 0, authOps: 0, budgetExceeded: false };
+  const r = { malformed: false, depth: 0, cost: 0, fields: 0, aliases: 0, authOps: 0, budgetExceeded: false, strings: [] };
   const rootFields = []; // names of the top-level fields (used to spot introspection)
+
+  // Collect the string values a client typed into arguments (for the payload scanner).
+  // Password arguments are skipped: they may legitimately contain quotes or symbols.
+  function collectStrings(node) {
+    if (r.strings.length >= 200) return;
+    if (node.kind === Kind.STRING) r.strings.push(node.value);
+    else if (node.kind === Kind.LIST) node.values.forEach(collectStrings);
+    else if (node.kind === Kind.OBJECT) {
+      node.fields.forEach((f) => {
+        if (f.name.value.toLowerCase() !== 'password') collectStrings(f.value);
+      });
+    }
+  }
 
   // How many rows does this list field return? Used as a cost multiplier.
   function listMultiplier(field) {
@@ -49,6 +62,9 @@ export function analyzeQuery(queryText) {
         r.depth = Math.max(r.depth, level);
         if (sel.alias) r.aliases++;
         if (AUTH_FIELDS.has(sel.name.value)) r.authOps++;
+        for (const arg of sel.arguments || []) {
+          if (arg.name.value.toLowerCase() !== 'password') collectStrings(arg.value);
+        }
         if (sel.selectionSet) walk(sel.selectionSet, level + 1, multiplier * listMultiplier(sel), stack);
       } else if (sel.kind === Kind.INLINE_FRAGMENT) {
         walk(sel.selectionSet, level, multiplier, stack);
@@ -65,6 +81,7 @@ export function analyzeQuery(queryText) {
   }
 
   for (const op of operations) walk(op.selectionSet, 1, 1, new Set());
+  r.rootFields = rootFields;
   // introspection-only = every top-level field is __schema / __type
   r.introspection = rootFields.length > 0 && rootFields.every((n) => n === '__schema' || n === '__type');
   return r;

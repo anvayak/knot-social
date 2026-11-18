@@ -4,8 +4,10 @@ import { evaluate } from './riskEngine.js';
 import { hit, resetLimits } from './rateLimiter.js';
 import { isBlocked, addStrike, normalizeIp, resetBlocks } from './blocklist.js';
 import { logEvent } from './logger.js';
+import { scanPayload } from './payloadScanner.js';
 
 const isProd = process.env.NODE_ENV === 'production';
+const ADMIN_POLL_FIELDS = new Set(['securityStats', 'securityEvents', 'blockedIps']);
 const lastBlockedLog = new Map(); // ip -> ms, so a flood doesn't spam the log
 
 function extractQuery(req) {
@@ -53,6 +55,9 @@ export function securityPipeline(req, res, next) {
     } else {
       // 3. Static query analysis
       analysis = analyzeQuery(query);
+      // Payload scanner: looks for SQLi, NoSQLi, XSS, SSRF and command injection in the values
+      const variables = req.method === 'POST' ? req.body?.variables : req.query?.variables;
+      extra.push(...scanPayload(analysis.malformed ? [query] : analysis.strings, variables));
       // 4. Stricter limit for login/signup (brute force). Aliases count once each.
       if (analysis.authOps > 0) {
         const auth = hit(`a:${ip}`, config.rate.auth, analysis.authOps);
@@ -68,7 +73,9 @@ export function securityPipeline(req, res, next) {
 
   // 5. Risk score and decision
   const verdict = evaluate(analysis, extra);
-  logEvent({ ip, query, ...verdict });
+  // The admin dashboard polls every few seconds; don't fill the log with those
+  const adminPoll = analysis?.rootFields?.length > 0 && analysis.rootFields.every((f) => ADMIN_POLL_FIELDS.has(f));
+  if (!(adminPoll && verdict.decision === 'ALLOW')) logEvent({ ip, query, ...verdict });
 
   if (verdict.decision === 'BLOCK') {
     const ipBlocked = addStrike(ip, verdict.attackType);
