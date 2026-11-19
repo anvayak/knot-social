@@ -1,0 +1,2 @@
+export function relativeTime(date:string){const seconds=Math.max(1,Math.floor((Date.now()-new Date(date).getTime())/1000));if(seconds<60)return `${seconds}s ago`;if(seconds<3600)return `${Math.floor(seconds/60)}m ago`;if(seconds<86400)return `${Math.floor(seconds/3600)}h ago`;return `${Math.floor(seconds/86400)}d ago`}
+export function timeLeft(date:string){const seconds=Math.max(0,Math.floor((new Date(date).getTime()-Date.now())/1000));return `${Math.floor(seconds/3600)}h ${String(Math.floor((seconds%3600)/60)).padStart(2,'0')}m`}

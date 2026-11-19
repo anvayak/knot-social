@@ -1,0 +1,7 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@custom-variant dark (&:is(.dark *));
+:root{color-scheme:dark;--background:#0B0F14;--foreground:#E6EDF3;--card:#111821;--card-foreground:#E6EDF3;--popover:#111821;--popover-foreground:#E6EDF3;--primary:#10B981;--primary-foreground:#07100d;--secondary:#18222d;--secondary-foreground:#dce5ed;--muted:#18222d;--muted-foreground:#8B98A5;--accent:#18222d;--accent-foreground:#E6EDF3;--destructive:#ef4444;--border:#1E2A38;--input:#1E2A38;--ring:#10B981;--radius:.75rem}
+@theme inline{--color-background:var(--background);--color-foreground:var(--foreground);--color-card:var(--card);--color-card-foreground:var(--card-foreground);--color-primary:var(--primary);--color-primary-foreground:var(--primary-foreground);--color-muted:var(--muted);--color-muted-foreground:var(--muted-foreground);--color-border:var(--border);--color-input:var(--input);--color-ring:var(--ring);--radius-sm:calc(var(--radius)*.6);--radius-md:calc(var(--radius)*.8);--radius-lg:var(--radius);--radius-xl:calc(var(--radius)*1.4)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#0B0F14;color:#E6EDF3;font-family:Arial,Helvetica,sans-serif}button,a,input,textarea{outline-color:#10B981}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #10B981;outline-offset:3px}::selection{background:#10B98155}

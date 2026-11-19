@@ -1,0 +1,4 @@
+import Link from 'next/link'
+import {AppShell} from '@/components/app-shell'
+import {ArrowLeft,Shield} from 'lucide-react'
+export default function NotFound(){return <AppShell><main className="grid min-h-[75vh] place-items-center px-5"><div className="max-w-md text-center"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-300"><Shield size={21}/></span><p className="mt-7 font-mono text-sm text-emerald-300">404 · PAGE NOT FOUND</p><h1 className="mt-3 text-3xl font-semibold tracking-tight">This thread went quiet.</h1><p className="mt-3 text-sm leading-relaxed text-[#8b98a5]">The page you&apos;re looking for doesn&apos;t exist or may have moved.</p><Link href="/" className="mt-7 inline-flex items-center gap-2 rounded-lg border border-[#2a3947] px-4 py-2.5 text-sm text-[#d4dce3] hover:bg-[#111821]"><ArrowLeft size={15}/>Back to Knot</Link></div></main></AppShell>}
