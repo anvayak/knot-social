@@ -5,6 +5,7 @@ import { hit, resetLimits } from './rateLimiter.js';
 import { isBlocked, addStrike, normalizeIp, resetBlocks } from './blocklist.js';
 import { logEvent } from './logger.js';
 import { scanPayload } from './payloadScanner.js';
+import { isAdminConsoleRequest } from './adminBypass.js';
 
 const isProd = process.env.NODE_ENV === 'production';
 const ADMIN_POLL_FIELDS = new Set(['securityStats', 'securityEvents', 'blockedIps']);
@@ -25,6 +26,10 @@ function reject(res, status, code, message, extra = {}) {
 // Runs before Apollo on /graphql. Cheapest checks first.
 export function securityPipeline(req, res, next) {
   const ip = normalizeIp(req.ip);
+  const query = extractQuery(req);
+
+  // 0. Verified admin using the console: never lock the admin out of their own dashboard
+  if (isAdminConsoleRequest(req, query)) return next();
 
   // 1. IP block-list
   const blocked = isBlocked(ip);
@@ -39,7 +44,6 @@ export function securityPipeline(req, res, next) {
     });
   }
 
-  const query = extractQuery(req);
   const extra = [];
   let analysis = null;
 
