@@ -30,13 +30,15 @@ const cleanText = (text, max = 280) => {
 
 const iso = (doc) => (doc.createdAt ? doc.createdAt.toISOString() : null);
 
+// NOTE: resolvers that read from MongoDB end with .exec() so GraphQL gets a real
+// Promise. Returning a bare Mongoose query causes "Query was already executed".
 export default {
   Query: {
     me: (_, __, ctx) => ctx.user,
     feed: (_, { limit }) =>
-      Post.find().sort({ createdAt: -1 }).limit(Math.min(Math.max(limit, 1), 50)),
-    post: (_, { id }) => Post.findById(id),
-    user: (_, { id }) => User.findById(id).select('-password'),
+      Post.find().sort({ createdAt: -1 }).limit(Math.min(Math.max(limit, 1), 50)).exec(),
+    post: (_, { id }) => Post.findById(id).exec(),
+    user: (_, { id }) => User.findById(id).select('-password').exec(),
 
     // Admin-only security console data
     securityStats: (_, __, ctx) => {
@@ -126,14 +128,14 @@ export default {
     // email is private: only the owner (or an admin) can read it
     email: (u, _, ctx) =>
       ctx.user && (ctx.user._id.equals(u._id) || ctx.user.role === 'admin') ? u.email : 'hidden',
-    posts: (u) => Post.find({ author: u._id }).sort({ createdAt: -1 }),
+    posts: (u) => Post.find({ author: u._id }).sort({ createdAt: -1 }).exec(),
     createdAt: iso,
   },
   Post: {
-    author: (p) => User.findById(p.author).select('-password'),
+    author: (p) => User.findById(p.author).select('-password').exec(),
     likesCount: (p) => p.likes.length,
     likedByMe: (p, _, ctx) => !!ctx.user && p.likes.some((id) => id.equals(ctx.user._id)),
-    replies: (p) => Reply.find({ post: p._id }).sort({ createdAt: 1 }),
+    replies: (p) => Reply.find({ post: p._id }).sort({ createdAt: 1 }).exec(),
     createdAt: iso,
   },
   SecurityEvent: {
@@ -143,7 +145,7 @@ export default {
     blockedUntil: (b) => b.blockedUntil.toISOString(),
   },
   Reply: {
-    author: (r) => User.findById(r.author).select('-password'),
+    author: (r) => User.findById(r.author).select('-password').exec(),
     createdAt: iso,
   },
 };

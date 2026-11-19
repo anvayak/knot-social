@@ -57,9 +57,10 @@ export function getEvents({ limit = 50, decision } = {}) {
   if (d && DECISIONS.includes(d)) filter.decision = d;
   return SecurityEvent.find(filter)
     .sort({ createdAt: -1 })
-    .limit(Math.min(Math.max(limit, 1), 200));
+    .limit(Math.min(Math.max(limit, 1), 200))
+    .exec();
 }
 
 export function getBlockedIps() {
-  return BlockedIp.find({ blockedUntil: { $gt: new Date() } }).sort({ blockedUntil: -1 });
+  return BlockedIp.find({ blockedUntil: { $gt: new Date() } }).sort({ blockedUntil: -1 }).exec();
 }
